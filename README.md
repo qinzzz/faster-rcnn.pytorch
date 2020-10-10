@@ -157,11 +157,7 @@ Before training, set the right directory to save and load the trained models. Ch
 
 To train a faster R-CNN model with vgg16 on pascal_voc, simply run:
 ```
-CUDA_VISIBLE_DEVICES=$GPU_ID python trainval_net.py \
-                   --dataset pascal_voc --net vgg16 \
-                   --bs $BATCH_SIZE --nw $WORKER_NUMBER \
-                   --lr $LEARNING_RATE --lr_decay_step $DECAY_STEP \
-                   --cuda
+CUDA_VISIBLE_DEVICES=$GPU_ID python trainval_net.py --dataset pascal_voc --net vgg16 --bs $BATCH_SIZE --nw $WORKER_NUMBER --lr $LEARNING_RATE --lr_decay_step $DECAY_STEP --cuda
 ```
 where 'bs' is the batch size with default 1. Alternatively, to train with resnet101 on pascal_voc, simple run:
 ```
@@ -201,6 +197,9 @@ If you want to run detection on your own images with a pre-trained model, downlo
 python demo.py --net vgg16 \
                --checksession $SESSION --checkepoch $EPOCH --checkpoint $CHECKPOINT \
                --cuda --load_dir path/to/model/directoy
+python demo.py --net vgg16 \
+               --checksession 1 --checkepoch 20 --checkpoint 16193 \
+               --cuda --load_dir models --dataset vg
 ```
 
 Then you will find the detection results in folder $ROOT/images.
