@@ -173,19 +173,7 @@ if __name__ == '__main__':
     raise Exception('There is no input directory for loading network from ' + input_dir)
   load_name = os.path.join(input_dir,
     'faster_rcnn_{}_{}_{}.pth'.format(args.checksession, args.checkepoch, args.checkpoint))
-
-
-  pascal_classes = ('background', 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
-  'train', 'truck', 'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter',
-  'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe',
-  'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard',
-  'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard',
-  'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana',
-  'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake',
-  'chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse',
-  'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator',
-  'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush')
-
+    
   # pascal_classes = np.asarray(['__background__',
   #                      'aeroplane', 'bicycle', 'bird', 'boat',
   #                      'bottle', 'bus', 'car', 'cat', 'chair',
@@ -193,16 +181,16 @@ if __name__ == '__main__':
   #                      'motorbike', 'person', 'pottedplant',
   #                      'sheep', 'sofa', 'train', 'tvmonitor'])
 
-  # with open('data/vg/objects_vocab.txt', 'r') as f:
-  #   data = f.readlines()
-  # pascal_classes = np.asarray(['__background__'])
-  # pascal_classes = np.append(pascal_classes, np.asarray(data))
-  # pascal_classes = [x.strip('\n') for x in pascal_classes]
-
   # with open('data/vg/objects_vocab_2500.txt', 'r') as f:
   #   data = f.readlines()
   # pascal_classes = np.asarray(data)
   # pascal_classes = [x.strip('\n') for x in pascal_classes]
+
+  with open('data/vg/objects_vocab.txt', 'r') as f:
+    data = f.readlines()
+  pascal_classes = np.asarray(['__background__'])
+  pascal_classes = np.append(pascal_classes, np.asarray(data))
+  pascal_classes = [x.strip('\n') for x in pascal_classes]
 
   # initilize the network here.
   if args.net == 'vgg16':
@@ -279,8 +267,7 @@ if __name__ == '__main__':
   print('Loaded Photo: {} images.'.format(num_images))
 
   ''' add '''
-  file_name = 'obj_detection_vgg_coco_0.1.json'
-  # open(file_name, 'w').close()
+  file_name = 'obj_detection_dict_0.1.json'
   outfile = open(file_name, 'w')
   image_list=[]
 
@@ -381,11 +368,8 @@ if __name__ == '__main__':
 
       pred_boxes /= im_scales[0]
 
-      scores = scores.squeeze()
-      pred_boxes = pred_boxes.squeeze()
-
-      # print("scores", scores, scores.shape) # 300*1601
-      # print("pred_boxes", pred_boxes, pred_boxes.shape) # 300*6404
+      scores = scores.squeeze()  # 300*1601
+      pred_boxes = pred_boxes.squeeze() # 300*6404
 
       det_toc = time.time()
       detect_time = det_toc - det_tic
@@ -394,56 +378,37 @@ if __name__ == '__main__':
           im2show = np.copy(im)
       for j in xrange(1, len(pascal_classes)):
           inds = torch.nonzero(scores[:,j]>thresh).view(-1)
-          # print("inds", inds, inds.shape)
-          # if there is det
           if inds.numel() > 0:
             cls_scores = scores[:,j][inds]
-            # print("cls_scores", cls_scores)
             _, order = torch.sort(cls_scores, 0, True)
             if args.class_agnostic:
               cls_boxes = pred_boxes[inds, :]
             else:
-              # print("index", inds)
               cls_boxes = pred_boxes[inds][:, j * 4:(j + 1) * 4]
               cls_feats = pooled_feat[inds]
 
 
             cls_dets = torch.cat((cls_boxes, cls_scores.unsqueeze(1)), 1)
-            # print("order", order)
             # cls_dets = torch.cat((cls_boxes, cls_scores), 1)
             cls_dets = cls_dets[order]
             cls_feats = cls_feats[order]
-            # print("cls_dets", cls_dets.shape)
-            # print("cls_feats", cls_feats.shape)
 
             # keep = nms(cls_dets, cfg.TEST.NMS, force_cpu=not cfg.USE_GPU_NMS)
             keep = nms(cls_boxes[order, :], cls_scores[order], cfg.TEST.NMS)
-            # print("keep", keep)
             cls_dets = cls_dets[keep.view(-1).long()]
             cls_feats = cls_feats[keep.view(-1).long()]
-            # print("cls_dets keep", cls_dets)
-            # print("cls_feats keep", cls_feats.shape)
             if vis:
               #
               im2show = vis_detections(im2show, pascal_classes[j], cls_dets.cpu().numpy(), 0.5)
               #
               feature_list = cls_feats.cpu().detach().numpy()
               counts += add_detection_dict(objects_list, pascal_classes[j], cls_dets.cpu().numpy(), feature_list, feature_lists, 0.1)
-              
-              
-            # print("class:", pascal_classes[j], "; cls_dets:", cls_dets)
-            # cls_dets: [x1,y1,x2,y2,score]
 
       imgid2idx[imglist[num_images]] = idx
       pos_bboxes.append([pos, pos+counts])
       
       pos+=counts
       idx+=1
-
-      # print(len(feature_lists), counts)
-      # print(pos_bboxes[-1])
-      # print(imglist[num_images], idx)
-      # input()
       
       image_list = write_detections(image_list, imglist[num_images], objects_list)
       misc_toc = time.time()
@@ -473,7 +438,7 @@ if __name__ == '__main__':
           if cv2.waitKey(1) & 0xFF == ord('q'):
               break
 
-  f = h5py.File("coco_dataset.hdf5")
+  f = h5py.File("flickr30k_features.hdf5")
   if "features" in f.keys():
         f.__delitem__("features")
   f.create_dataset("features", data = feature_lists)
@@ -481,12 +446,12 @@ if __name__ == '__main__':
       f.__delitem__("pos_bboxes")
   f.create_dataset("pos_bboxes", data = pos_bboxes)
 
-  print(f["pos_bboxes"])
+  print(f["pos_bboxes"].shape)
   print(f["features"].shape)
 
   f.close()
 
-  pf = open("coco_imgid2idx.pkl", "wb")
+  pf = open("maf_imgid2idx.pkl", "wb")
   pickle.dump(imgid2idx, pf)
   pf.close()
 
